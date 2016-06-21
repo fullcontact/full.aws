@@ -6,12 +6,12 @@
             [full.async :refer :all]
             [full.core.sugar :refer :all]
             [full.core.log :as log]
-            [full.edn :refer [read-edn write-edn]]
+            [full.core.edn :refer [read-edn write-edn]]
             [full.json :refer [read-json write-json]]
             [full.aws.core :as aws]
             [full.metrics :refer [thread-try-timeit timeit] :as metrics]
             [camelsnake.core :refer :all]
-            [full.time :refer :all]
+            [full.core.time :refer :all]
             [clj-time.core :as t])
   (:import (com.amazonaws.services.sqs AmazonSQSAsyncClient)
            (com.amazonaws.services.sqs.buffered AmazonSQSBufferedAsyncClient)

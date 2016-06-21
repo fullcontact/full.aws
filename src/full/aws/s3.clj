@@ -4,8 +4,8 @@
             [full.aws.core :as aws]
             [full.async :refer :all]
             [full.http.client :as http]
-            [full.time :refer :all]
-            [full.edn :refer [read-edn]])
+            [full.core.time :refer :all]
+            [full.core.edn :refer [read-edn]])
   (:import (com.amazonaws.services.s3.model GeneratePresignedUrlRequest)
            (java.util Date)
            (com.amazonaws HttpMethod)
@@ -39,7 +39,7 @@
     * :headers - HTTP headers such as Content-Type
     * :timeout - request timeout in seconds"
   [^String bucket-name, ^String key, ^String body
-   & {:keys [headers timeout client] 
+   & {:keys [headers timeout client]
       :or {client @client}}]
   {:pre [bucket-name key body]}
   (go-try
