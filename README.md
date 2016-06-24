@@ -10,7 +10,7 @@ provides asyns clients for Dynamo DB, SQS, and S3.
 
 full.aws provides the following configuration options:
 
-```
+```yaml
 aws:
   region: "us-east-1"
   client-id: "xxx"
