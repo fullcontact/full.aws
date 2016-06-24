@@ -27,7 +27,8 @@
                                              ListQueuesRequest SendMessageBatchRequest SendMessageBatchRequestEntry BatchResultErrorEntry)))
 
 
-(def message-count-fetch-interval (opt [:aws :sqs :message-count-fetch-interval] :default nil))
+(def message-count-fetch-interval
+  (opt [:aws :sqs :message-count-fetch-interval] :default 5))
 
 (def max-wait-time 20)
 (def max-max-messages 10)
@@ -160,7 +161,7 @@
                             :metric (:approximate-number-of-messages-delayed attrs)}
                            {:service (str "sqs." name ".messages.notvis")
                             :metric (:approximate-number-of-messages-not-visible attrs)}])))
-      (<! (timeout (* 1000 (or @message-count-fetch-interval 5))))
+      (<! (timeout (* 1000 @message-count-fetch-interval)))
       (recur))
     nil))
 
