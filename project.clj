@@ -1,4 +1,4 @@
-(defproject fullcontact/full.aws "0.8.21-SNAPSHOT"
+(defproject fullcontact/full.aws "0.8.21"
   :description "Async Amazon Webservices client."
 
   :url "https://github.com/fullcontact/full.monty"
