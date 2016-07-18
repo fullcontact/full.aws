@@ -30,6 +30,9 @@
 (def message-count-fetch-interval
   (opt [:aws :sqs :message-count-fetch-interval] :default 5))
 
+(def sqs-endpoint
+  (opt [:aws :sqs-endpoint] :default nil))
+
 (def max-wait-time 20)
 (def max-max-messages 10)
 (def default-visibility-timeout 30)
@@ -39,6 +42,9 @@
 
 (def client (delay (-> @aws/credentials-provider
                        (AmazonSQSAsyncClient.)
+                       (#(if @sqs-endpoint
+                           (.withEndpoint % @sqs-endpoint)
+                           %))
                        (AmazonSQSBufferedAsyncClient.))))
 
 
