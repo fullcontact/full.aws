@@ -33,6 +33,10 @@
 (def sqs-endpoint
   (opt [:aws :sqs-endpoint] :default nil))
 
+(def fetch-delay
+  (opt [:aws :sqs :fetch-delay] :default 0))
+
+
 (def max-wait-time 20)
 (def max-max-messages 10)
 (def default-visibility-timeout 30)
@@ -310,6 +314,7 @@
              (recur delay))
            (do
              (<! (onto-chan ch messages false))
+             (<! (timeout (* 1000 @fetch-delay)))
              (recur 0)))))
      ch)))
 
