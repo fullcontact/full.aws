@@ -5,7 +5,8 @@
             [full.async :refer :all]
             [full.http.client :as http]
             [full.core.time :refer :all]
-            [full.core.edn :refer [read-edn]])
+            [full.core.edn :refer [read-edn]]
+            [full.core.log :as log])
   (:import (com.amazonaws.services.s3.model GeneratePresignedUrlRequest)
            (java.util Date)
            (com.amazonaws HttpMethod)
@@ -25,12 +26,28 @@
   (when (string? etag)
     (.substring etag 1 (dec (.length etag)))))
 
+(defn- presign-request-add-params [req params]
+  (doseq [[k v] params]
+    (.addRequestParameter req k v))
+  req)
+
 (defn- presign-request
-  [bucket-name key & {:keys [method content-type]}]
+  [bucket-name key & {:keys [method content-type params]}]
   (-> (GeneratePresignedUrlRequest. bucket-name key)
       (.withExpiration (expiration-date))
       (cond-> method (.withMethod method)
-              content-type (.withContentType content-type))))
+              content-type (.withContentType content-type)
+              params (presign-request-add-params params))))
+
+(defn generate-presigned-url
+  [bucket-name key & {:keys [client content-type params] :or {client @client}}]
+  (let [req (presign-request bucket-name
+                             key
+                             :method HttpMethod/PUT
+                             :content-type content-type
+                             :params params)
+        url (.generatePresignedUrl client req)]
+    (str url)))
 
 (defn put-object>
   "Create or updates S3 object. Returns a channel that will yield single
@@ -45,16 +62,11 @@
   (go-try
     (let [content-type (or (get headers "Content-Type")
                            "text/plain")
-          url (.generatePresignedUrl
-                client
-                (presign-request bucket-name
-                                 key
-                                 :method HttpMethod/PUT
-                                 :content-type content-type))
+          url (generate-presigned-url bucket-name key :content-type content-type)
           headers (-> (or headers {})
                       (assoc "Content-Length" (.length body))
                       (assoc "Content-Type" content-type))]
-      (-> (http/req> {:url (str url)
+      (-> (http/req> {:url url
                       :method :put
                       :body body
                       :headers headers
