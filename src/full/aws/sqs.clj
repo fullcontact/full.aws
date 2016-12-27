@@ -1,6 +1,6 @@
 (ns full.aws.sqs
   (:require [clojure.core.async :refer [go go-loop <! >! chan timeout
-                                        onto-chan alts!]]
+                                        onto-chan alts! to-chan]]
             [clojure.string :as strs]
             [full.core.config :refer [opt]]
             [full.async :refer :all]
@@ -290,14 +290,15 @@
   "Continously receive messages from AWS with long-polling. Returns an inifinite
    channel that will yield the received messages."
   ([queue-url] (receive-messages>> queue-url {}))
-  ([queue-url {:keys [wait-time max-messages visibility-timeout unserializer]
+  ([queue-url {:keys [wait-time max-messages visibility-timeout
+                      unserializer out-chan]
                :or {wait-time max-wait-time
                     max-messages max-max-messages
                     visibility-timeout default-visibility-timeout
                     unserializer read-edn}}]
    {:pre [(and (integer? wait-time) (< 0 wait-time)
                (>= max-wait-time wait-time))]}
-   (let [ch (chan (or max-messages max-max-messages))]
+   (let [ch (or out-chan (chan (or max-messages max-max-messages)))]
      (go-loop
        [last-delay 0]
        (let [messages (<! (receive-messages> queue-url
@@ -326,6 +327,11 @@
     "sqs.delete"
     (->> (DeleteMessageRequest. queue-url receipt-handle)
          (.deleteMessage @client))))
+
+(defn batch-delete-messages> [messages]
+  (go-try
+   "sqs.delete-batch"
+   (<<? (pmap>> #(delete-message> %) 10 (to-chan messages)))))
 
 (defn change-message-visibility>
   [{:keys [queue-url receipt-handle] :as message} visibility-timeout]
@@ -356,9 +362,13 @@
       ; else
       "not retrying")))
 
+(defn- batch-retry-messages>
+  [messages retries]
+  (go (map #(retry-message> % retries) messages)))
+
 (defn- handle-message>
   [{:keys [message handler> visibility-timeout extend-visibility-after
-           retries auto-delete]}]
+           retries auto-delete delete-handler> retry-handler>]}]
   (go
     (try
       (let [handler-ch (handler> message)]
@@ -374,11 +384,11 @@
                        (inc extension)))))
           (<? handler-ch))
         (when auto-delete
-          (let [res (<! (delete-message> message))]
+          (let [res (<! (delete-handler> message))]
             (when (instance? Throwable res)
               (log/error "Error deleting message" message res)))))
       (catch Throwable ex
-        (let [res (<! (retry-message> message retries))]
+        (let [res (<! (retry-handler> message retries))]
           (log/error ex (str "Error processing message " message ", " res)))))))
 
 (defn subscribe
@@ -401,10 +411,14 @@
                                 processing time. Should be less than
                                 :visibility-timeout. Set to nil to disable.
    * :auto-delete  Whether to automatically delete successfully handled
-                   messages. Default is true"
+                   messages. Default is true
+   * :batch-size   When this is set, messages are passed in batches of
+                   batch-size to handler. Auto delete also deletes messages in
+                   batches instead of one by one"
   ([queue-url handler>] (subscribe queue-url handler> {}))
-  ([queue-url handler> {:keys [visibility-timeout extend-visibility-after
-                               unserializer parallelism retries auto-delete]
+  ([queue-url handler> {:keys [visibility-timeout
+                               extend-visibility-after unserializer
+                               parallelism retries auto-delete batch-size]
                         :or {visibility-timeout default-visibility-timeout
                              extend-visibility-after default-extend-visibility-after
                              unserializer read-edn
@@ -415,16 +429,31 @@
           (or (nil? extend-visibility-after)
               (and (pos? extend-visibility-after)
                    (pos? visibility-timeout)
-                   (> visibility-timeout extend-visibility-after)))]}
-   (->> (receive-messages>> queue-url {:wait-time 20
-                                       :max-messages (min 10 parallelism)
-                                       :visibility-timeout visibility-timeout
-                                       :unserializer unserializer})
+                   (> visibility-timeout extend-visibility-after)))
+          (or (pos? batch-size)
+              (nil? batch-size))]}
+   (let [out-chan (when batch-size
+                    (chan batch-size
+                          (partition-all batch-size)))
+         delete-handler> (if batch-size
+                           batch-delete-messages>
+                           delete-message>)
+         retry-handler> (if batch-size
+                          batch-retry-messages>
+                          retry-message>)]
+     (->> (receive-messages>> queue-url
+                              {:wait-time 20
+                               :max-messages (min 10 parallelism)
+                               :visibility-timeout visibility-timeout
+                               :unserializer unserializer
+                               :out-chan out-chan})
         (pmap>> #(handle-message> {:message %
                                    :handler> handler>
                                    :visibility-timeout visibility-timeout
                                    :extend-visibility-after extend-visibility-after
                                    :retries retries
-                                   :auto-delete auto-delete})
+                                   :auto-delete auto-delete
+                                   :delete-handler> delete-handler>
+                                   :retry-handler> retry-handler>})
                 parallelism)
-        (engulf))))
+        (engulf)))))
