@@ -14,10 +14,13 @@
 
 (def client aws/default-https-client)
 
-(defn- expiration-date []
+(defn- expiration-date [ms-to-expire]
   (let [d (Date.)
-        msec (.getTime d)]
-    (.setTime d (+ msec (* 24 60 60 1000)))  ; 24h
+        msec (.getTime d)
+        msec-inc (or ms-to-expire 
+                     (* 24 60 60 1000)) ;24hr
+        time (+ msec msec-inc)]
+    (.setTime d time)
     d))
 
 (defn- unrwrap-etag
@@ -32,20 +35,21 @@
   req)
 
 (defn- presign-request
-  [bucket-name key & {:keys [method content-type params]}]
+  [bucket-name key & {:keys [method content-type params expiration]}]
   (-> (GeneratePresignedUrlRequest. bucket-name key)
-      (.withExpiration (expiration-date))
+      (.withExpiration (expiration-date expiration))
       (cond-> method (.withMethod method)
               content-type (.withContentType content-type)
               params (presign-request-add-params params))))
 
 (defn generate-presigned-url
-  [bucket-name key & {:keys [client content-type params] :or {client @client}}]
+  [bucket-name key & {:keys [client content-type params expiration] :or {client @client}}]
   (let [req (presign-request bucket-name
                              key
                              :method HttpMethod/PUT
                              :content-type content-type
-                             :params params)
+                             :params params
+                             :expiration expiration)
         url (.generatePresignedUrl client req)]
     (str url)))
 
