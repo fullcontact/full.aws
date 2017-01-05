@@ -8,7 +8,9 @@
             [full.core.edn :refer [read-edn]]
             [full.core.log :as log])
   (:import (com.amazonaws.services.s3.model GeneratePresignedUrlRequest)
+           (com.amazonaws.services.s3.model ListObjectsRequest)
            (java.util Date)
+           (java.time Instant)
            (com.amazonaws HttpMethod)
            (java.io InputStream)))
 
@@ -17,8 +19,8 @@
 (defn- expiration-date [ms-to-expire]
   (let [d (Date.)
         msec (.getTime d)
-        msec-inc (or ms-to-expire 
-                     (* 24 60 60 1000)) ;24hr
+        msec-inc (or ms-to-expire
+                     (* 24 60 60 1000))                     ;24hr
         time (+ msec msec-inc)]
     (.setTime d time)
     d))
@@ -83,7 +85,7 @@
 
 (defn put-edn>
   [^String bucket-name, ^String key, ^String object
-  & {:keys [headers timeout client]}]
+   & {:keys [headers timeout client]}]
   (put-object> bucket-name key (pr-str object)
                :headers (-> (or headers {})
                             (assoc "Content-Type" "application/edn"))
@@ -128,3 +130,15 @@
                :timeout timeout
                :response-parser (comp read-edn string-response-parser)
                :client client))
+
+(defn- generate-objects-request
+  [^String bucket-name & {:keys [prefix]}]
+  (-> (ListObjectsRequest.)
+      (.withBucketName bucket-name)
+      (.withPrefix prefix)))
+
+(defn get-objects>
+  [^String bucket-name & {:keys [prefix response-parser client]
+                          :or {response-parser string-response-parser client @client}}]
+  (let [resp (.listObjects client (generate-objects-request bucket-name :prefix prefix))]
+    resp))
