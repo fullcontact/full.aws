@@ -6,7 +6,7 @@
             :distribution :repo}
   :deploy-repositories [["releases" {:url "https://clojars.org/repo/" :creds :gpg}]]
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [com.amazonaws/aws-java-sdk "1.10.0"]
+                 [com.amazonaws/aws-java-sdk "1.10.24"]
                  [com.taoensso/faraday "1.7.1" ; DynamoDB sugar
                   :exclusions [com.amazonaws/aws-java-sdk-dynamodb joda-time]]
                  [fullcontact/full.metrics "0.10.2"]
