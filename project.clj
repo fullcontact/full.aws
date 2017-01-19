@@ -9,8 +9,7 @@
                  [com.amazonaws/aws-java-sdk "1.10.0"]
                  [com.taoensso/faraday "1.7.1" ; DynamoDB sugar
                   :exclusions [com.amazonaws/aws-java-sdk-dynamodb joda-time]]
-                 [fullcontact/full.metrics "0.10.2"]
-                 [fullcontact/full.http "0.10.1"]
+                 [fullcontact/full.http "0.10.8"]
                  [fullcontact/full.json "0.10.0"]
                  [fullcontact/full.async "0.9.0"]
                  [fullcontact/full.core "0.10.1"
