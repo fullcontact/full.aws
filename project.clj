@@ -1,4 +1,4 @@
-(defproject fullcontact/full.aws "0.10.7-SNAPSHOT"
+(defproject fullcontact/full.aws "0.10.7"
   :description "Async Amazon Webservices client."
   :url "https://github.com/fullcontact/full.aws"
   :license {:name "Eclipse Public License - v 1.0"
