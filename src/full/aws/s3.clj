@@ -137,12 +137,14 @@
                :response-parser (comp read-edn string-response-parser)
                :client client))
 
-(defn list-objects> [bucket-name prefix]
+(defn list-objects>
+  [^String bucket-name ^String prefix
+   & {:keys [client] :or {client @client}}]
   (let [req (-> (ListObjectsRequest.)
                 (.withBucketName bucket-name)
                 (.withPrefix prefix))]
     (thread-try
-      (.listObjects @client req))))
+      (.listObjects client req))))
 
 (defn delete-object>
   [^String bucket-name, ^String key
