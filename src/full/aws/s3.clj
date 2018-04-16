@@ -9,6 +9,7 @@
             [full.core.log :as log])
   (:import (com.amazonaws.services.s3.model GeneratePresignedUrlRequest)
            (com.amazonaws.services.s3.model ListObjectsRequest)
+           (com.amazonaws.services.s3.model DeleteObjectsRequest)
            (java.util Date)
            (com.amazonaws HttpMethod)
            (java.io InputStream)))
@@ -156,3 +157,11 @@
                       :headers headers
                       :timeout timeout})
           (<?)))))
+
+(defn delete-objects>
+  [^String bucket-name keys
+   & {:keys [client] :or {client @client}}]
+  (let [req (-> (DeleteObjectsRequest. bucket-name)
+                (.withKeys (into-array keys)))]
+    (thread-try
+      (.deleteObjects client req))))
